@@ -1,0 +1,16 @@
+# Gradle
+.gradle/
+build/
+
+# Fichiers sensibles (SDK path, tokens Mapbox, credentials Supabase…)
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Captures
+/captures
+.externalNativeBuild
+.cxx
