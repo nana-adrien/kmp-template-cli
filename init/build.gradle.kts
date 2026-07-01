@@ -91,9 +91,22 @@ tasks.register("applyConfig") {
             "--mapbox-token", mapboxToken
         ))
 
-        // Auto-nettoyage : supprime ce module après initialisation réussie.
-        // Au prochain sync Gradle, settings.gradle.kts ne détectera plus init/
-        // et les tâches d'initialisation disparaîtront automatiquement.
+        // ── Nettoyage et synchronisation ─────────────────────────────────────────
+        // 1. Supprimer ce module — les tâches d'init disparaîtront du prochain sync
         projectDir.deleteRecursively()
+
+        // 2. Réécrire settings.gradle.kts :
+        //    - Met à jour rootProject.name avec le vrai nom de l'app
+        //    - Retire include(":init") devenu invalide
+        //    - La modification du fichier déclenche un sync automatique dans Android Studio
+        val rootName = appName.trim().lowercase().replace(" ", "-").replace("_", "-")
+        rootProject.file("settings.gradle.kts").writeText(
+            """
+            rootProject.name = "$rootName"
+
+            // Module de gestion des cibles et modules — toujours présent
+            include(":manage")
+            """.trimIndent() + "\n"
+        )
     }
 }
