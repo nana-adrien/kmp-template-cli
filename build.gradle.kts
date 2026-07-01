@@ -1,5 +1,3 @@
-import org.gradle.process.ExecOperations
-
 // ════════════════════════════════════════════════════════════════
 //  kmp-template-cli — Tâches Gradle du groupe "template"
 //  Aucune dépendance applicative, aucun module KMP.
@@ -15,11 +13,21 @@ if (configFile.exists()) {
 fun strProp(key: String): String = extra.properties[key] as? String ?: ""
 fun boolProp(key: String): Boolean = extra.properties[key] as? Boolean ?: false
 
+// Exécute un script shell depuis le répertoire racine du projet
+fun runScript(args: List<String>) {
+    val process = ProcessBuilder(args)
+        .directory(projectDir)
+        .inheritIO()
+        .start()
+    val exitCode = process.waitFor()
+    if (exitCode != 0)
+        throw GradleException("Script '${args[0]}' a échoué (code $exitCode)")
+}
+
 // ── Initialisation ────────────────────────────────────────────────────────────
 tasks.register("applyConfig") {
     group = "template"
     description = "Initialise le projet depuis template.config.gradle.kts"
-    val execOps = project.serviceOf<ExecOperations>()
     doLast {
         if (!configFile.exists())
             throw GradleException(
@@ -28,22 +36,22 @@ tasks.register("applyConfig") {
                 "Si tu veux réinitialiser, supprime .template-initialized et recrée template.config.gradle.kts."
             )
 
-        val appName        = strProp("appName")
-        val packageName    = strProp("packageName")
+        val appName         = strProp("appName")
+        val packageName     = strProp("packageName")
         val componentPrefix = strProp("componentPrefix")
-        val backendType    = strProp("backendType")
-        val dbUrl          = strProp("dbUrl")
-        val dbUser         = strProp("dbUser")
-        val dbPassword     = strProp("dbPassword")
-        val jwtSecret      = strProp("jwtSecret")
-        val supabaseUrl    = strProp("supabaseUrl")
+        val backendType     = strProp("backendType")
+        val dbUrl           = strProp("dbUrl")
+        val dbUser          = strProp("dbUser")
+        val dbPassword      = strProp("dbPassword")
+        val jwtSecret       = strProp("jwtSecret")
+        val supabaseUrl     = strProp("supabaseUrl")
         val supabaseAnonKey = strProp("supabaseAnonKey")
-        val pushType       = strProp("pushType")
-        val mapboxToken    = strProp("mapboxToken")
-        val targetAndroid  = boolProp("targetAndroid")
-        val targetIos      = boolProp("targetIos")
-        val targetDesktop  = boolProp("targetDesktop")
-        val targetWeb      = boolProp("targetWeb")
+        val pushType        = strProp("pushType")
+        val mapboxToken     = strProp("mapboxToken")
+        val targetAndroid   = boolProp("targetAndroid")
+        val targetIos       = boolProp("targetIos")
+        val targetDesktop   = boolProp("targetDesktop")
+        val targetWeb       = boolProp("targetWeb")
 
         if (appName.isBlank())
             throw GradleException("appName est vide dans template.config.gradle.kts")
@@ -67,27 +75,25 @@ tasks.register("applyConfig") {
         if (mapboxToken.isNotBlank() && !mapboxToken.startsWith("pk.eyJ"))
             throw GradleException("mapboxToken invalide : doit commencer par pk.eyJ")
 
-        execOps.exec {
-            commandLine(
-                ".scripts/init.sh",
-                "--app-name",     appName,
-                "--package",      packageName,
-                "--prefix",       componentPrefix,
-                "--android",      targetAndroid.toString(),
-                "--ios",          targetIos.toString(),
-                "--desktop",      targetDesktop.toString(),
-                "--web",          targetWeb.toString(),
-                "--backend",      backendType,
-                "--db-url",       dbUrl,
-                "--db-user",      dbUser,
-                "--db-password",  dbPassword,
-                "--jwt-secret",   jwtSecret,
-                "--supabase-url", supabaseUrl,
-                "--supabase-key", supabaseAnonKey,
-                "--push",         pushType,
-                "--mapbox-token", mapboxToken
-            )
-        }
+        runScript(listOf(
+            ".scripts/init.sh",
+            "--app-name",     appName,
+            "--package",      packageName,
+            "--prefix",       componentPrefix,
+            "--android",      targetAndroid.toString(),
+            "--ios",          targetIos.toString(),
+            "--desktop",      targetDesktop.toString(),
+            "--web",          targetWeb.toString(),
+            "--backend",      backendType,
+            "--db-url",       dbUrl,
+            "--db-user",      dbUser,
+            "--db-password",  dbPassword,
+            "--jwt-secret",   jwtSecret,
+            "--supabase-url", supabaseUrl,
+            "--supabase-key", supabaseAnonKey,
+            "--push",         pushType,
+            "--mapbox-token", mapboxToken
+        ))
     }
 }
 
@@ -98,29 +104,25 @@ listOf("ios", "desktop", "web").forEach { target ->
     tasks.register("addTarget$targetCap") {
         group = "template"
         description = "Ajoute la cible $target (télécharge le code depuis le repo de référence)"
-        val execOps = project.serviceOf<ExecOperations>()
-        doLast { execOps.exec { commandLine(".scripts/add-target.sh", target) } }
+        doLast { runScript(listOf(".scripts/add-target.sh", target)) }
     }
 
     tasks.register("disableTarget$targetCap") {
         group = "template"
         description = "Désactive $target temporairement (code conservé sur le disque)"
-        val execOps = project.serviceOf<ExecOperations>()
-        doLast { execOps.exec { commandLine(".scripts/disable-target.sh", target) } }
+        doLast { runScript(listOf(".scripts/disable-target.sh", target)) }
     }
 
     tasks.register("enableTarget$targetCap") {
         group = "template"
         description = "Réactive $target (flag Gradle uniquement)"
-        val execOps = project.serviceOf<ExecOperations>()
-        doLast { execOps.exec { commandLine(".scripts/enable-target.sh", target) } }
+        doLast { runScript(listOf(".scripts/enable-target.sh", target)) }
     }
 
     tasks.register("removeTarget$targetCap") {
         group = "template"
         description = "⚠ Supprime définitivement la cible $target et son code"
-        val execOps = project.serviceOf<ExecOperations>()
-        doLast { execOps.exec { commandLine(".scripts/remove-target.sh", target) } }
+        doLast { runScript(listOf(".scripts/remove-target.sh", target)) }
     }
 }
 
@@ -129,7 +131,6 @@ listOf("ios", "desktop", "web").forEach { target ->
 tasks.register("createFeature") {
     group = "template"
     description = "Scaffold une nouvelle feature MVI. Usage : -PfeatureName=<nom>"
-    val execOps = project.serviceOf<ExecOperations>()
     doLast {
         val name = project.findProperty("featureName") as String?
             ?: throw GradleException(
@@ -141,7 +142,7 @@ tasks.register("createFeature") {
                 "featureName invalide : $name\n" +
                 "Minuscules et underscores uniquement. Ex : commandes, mes_livraisons"
             )
-        execOps.exec { commandLine(".scripts/create-feature.sh", name) }
+        runScript(listOf(".scripts/create-feature.sh", name))
     }
 }
 
@@ -149,8 +150,7 @@ tasks.register("createFeature") {
 tasks.register("addServer") {
     group = "template"
     description = "Ajoute le serveur Spring Boot (bascule depuis le mode Ktor-only)"
-    val execOps = project.serviceOf<ExecOperations>()
-    doLast { execOps.exec { commandLine(".scripts/add-server.sh") } }
+    doLast { runScript(listOf(".scripts/add-server.sh")) }
 }
 
 // ── Modules optionnels ────────────────────────────────────────────────────────
@@ -158,7 +158,6 @@ tasks.register("addServer") {
 tasks.register("addMaps") {
     group = "template"
     description = "Ajoute le module Mapbox (feature/geo). Usage : -PmapboxToken=pk.eyJ..."
-    val execOps = project.serviceOf<ExecOperations>()
     doLast {
         val token = project.findProperty("mapboxToken") as String?
             ?: throw GradleException(
@@ -167,7 +166,7 @@ tasks.register("addMaps") {
             )
         if (!token.startsWith("pk.eyJ"))
             throw GradleException("mapboxToken invalide : doit commencer par pk.eyJ")
-        execOps.exec { commandLine(".scripts/add-maps.sh", "--token", token) }
+        runScript(listOf(".scripts/add-maps.sh", "--token", token))
     }
 }
 
@@ -175,13 +174,11 @@ tasks.register("addMaps") {
 tasks.register("updateCore") {
     group = "template"
     description = "Re-synchronise core/ avec la dernière version du repo de référence"
-    val execOps = project.serviceOf<ExecOperations>()
-    doLast { execOps.exec { commandLine(".scripts/update-core.sh") } }
+    doLast { runScript(listOf(".scripts/update-core.sh")) }
 }
 
 tasks.register("doctor") {
     group = "template"
     description = "Vérifie la cohérence du projet (cibles, flags, credentials)"
-    val execOps = project.serviceOf<ExecOperations>()
-    doLast { execOps.exec { commandLine(".scripts/doctor.sh") } }
+    doLast { runScript(listOf(".scripts/doctor.sh")) }
 }
